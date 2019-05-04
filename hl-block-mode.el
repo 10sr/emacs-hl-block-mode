@@ -97,40 +97,54 @@ Inverse of `color-values'."
   (hl-block--overlay-clear)
   (let ((block-list (save-excursion (hl-block--find-all-ranges (point)))))
     (when block-list
-      (let* ((block-list
-              (if (cdr block-list)
-                  (reverse block-list)
-                (cons (list (point-min) (point-max)) block-list)))
-             (start-prev (nth 0 (nth 0 block-list)))
-             (end-prev (nth 1 (nth 0 block-list)))
+      (let* ((block-list (reverse block-list))
+             (start-prev (point-min))
+             (end-prev (point-max))
              (block-list-len (length block-list))
              (bg-color (color-values (face-attribute 'default :background)))
              (bg-color-tint (color-values hl-block-color-tint))
              ;; Check dark background is light/dark.
              (do-highlight (> 98304 (apply '+ bg-color))))
-        (seq-map-indexed
-         (lambda (elem_range i)
-           (let* ((i-tint (- block-list-len i))
-                  (start (nth 0 elem_range))
-                  (end (nth 1 elem_range))
-                  (elem-overlay-start (make-overlay start start-prev))
-                  (elem-overlay-end (make-overlay end-prev end))
-                  (bg-color-blend
-                   (apply 'hl-block--color-values-as-string
-                          (if do-highlight
-                              (cl-mapcar '(lambda (a b) (+ a (* i-tint b)))
-                                         bg-color bg-color-tint)
-                            (cl-mapcar '(lambda (a b) (- a (* i-tint b)))
-                                       bg-color bg-color-tint)))))
-             (overlay-put elem-overlay-start
-                          'face `(:background ,bg-color-blend))
-             (overlay-put elem-overlay-end
-                          'face `(:background ,bg-color-blend))
-             (add-to-list 'hl-block-overlay elem-overlay-start)
-             (add-to-list 'hl-block-overlay elem-overlay-end)
-             (setq start-prev start)
-             (setq end-prev end)))
-         (cdr block-list))))))
+        (save-excursion
+          (seq-map-indexed
+           (lambda (elem_range i)
+             (let* ((i-tint (- block-list-len i))
+                    (start (nth 0 elem_range))
+                    (end (nth 1 elem_range))
+                    (bg-color-blend
+                     (apply
+                      'hl-block--color-values-as-string
+                      (if do-highlight
+                          (cl-mapcar '(lambda (a b) (+ a (* i-tint b))) bg-color bg-color-tint)
+                        (cl-mapcar '(lambda (a b) (- a (* i-tint b))) bg-color bg-color-tint)))))
+
+               (let*
+                   (
+                    (i-start-a (progn (goto-char start-prev) (back-to-indentation) (point)))
+                    (i-start-begin (progn (beginning-of-line) (point)))
+                    (i-start-a-ofs (progn (- i-start-a i-start-begin)))
+                    (i-start-b (progn (goto-char start) (back-to-indentation) (point)))
+                    (i-start-b-ofs (progn (- i-start-b (progn (beginning-of-line) (point)))))
+                    (i-span (- i-start-b-ofs i-start-a-ofs)))
+                 (goto-char i-start-begin)
+
+                 (while
+                     (progn
+                       (next-line)
+                       (let*
+                           ((line-start (point))
+                            (line-end (save-excursion (end-of-line) (1- (point))))
+                            (line-start-a (min line-end (+ line-start i-start-a-ofs)))
+                            (line-start-b (min line-end (+ line-start i-start-b-ofs))))
+                         (if (and (< line-start-a line-start-b) (< line-start-a end-prev))
+                             (progn
+                               (let* ((elem-overlay (make-overlay (+ line-start i-start-a-ofs) (+ line-start i-start-b-ofs))))
+                                 (overlay-put elem-overlay 'face `(:background ,bg-color-blend))
+                                 (add-to-list 'hl-block-overlay elem-overlay)
+                                 ) t) nil))))
+                 (setq start-prev start)
+                 (setq end-prev end))))
+           block-list))))))
 
 (defun hl-block--overlay-refresh-from-timer ()
   "Ensure this mode has not been disabled
