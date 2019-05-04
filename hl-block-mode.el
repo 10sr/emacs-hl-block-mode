@@ -85,12 +85,9 @@ Inverse of `color-values'."
           (ash g -8)
           (ash b -8)))
 
-(defvar hl-block-overlay nil)
-
 (defun hl-block--overlay-clear ()
   "Clear all overlays."
-  (mapc 'delete-overlay hl-block-overlay)
-  (setq hl-block-overlay nil))
+  (remove-text-properties (point-min) (point-max) '(font-lock-face nil rear-nonsticky nil)))
 
 (defun hl-block--overlay-refresh ()
   "Update the overlays based on the cursor location."
@@ -113,21 +110,18 @@ Inverse of `color-values'."
            (let* ((i-tint (- block-list-len i))
                   (start (nth 0 elem_range))
                   (end (nth 1 elem_range))
-                  (elem-overlay-start (make-overlay start start-prev))
-                  (elem-overlay-end (make-overlay end-prev end))
                   (bg-color-blend
                    (apply 'hl-block--color-values-as-string
                           (if do-highlight
                               (cl-mapcar '(lambda (a b) (+ a (* i-tint b)))
                                          bg-color bg-color-tint)
                             (cl-mapcar '(lambda (a b) (- a (* i-tint b)))
-                                       bg-color bg-color-tint)))))
-             (overlay-put elem-overlay-start
-                          'face `(:background ,bg-color-blend))
-             (overlay-put elem-overlay-end
-                          'face `(:background ,bg-color-blend))
-             (add-to-list 'hl-block-overlay elem-overlay-start)
-             (add-to-list 'hl-block-overlay elem-overlay-end)
+                                       bg-color bg-color-tint))))
+                  (bg-color-font `(font-lock-face (:background ,bg-color-blend) rear-nonsticky t)))
+
+             (add-text-properties start start-prev bg-color-font)
+             (add-text-properties end-prev end bg-color-font)
+
              (setq start-prev start)
              (setq end-prev end)))
          (cdr block-list))))))
