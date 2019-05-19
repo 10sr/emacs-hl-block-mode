@@ -27,7 +27,8 @@
 
 ;;; Usage
 
-;; (hl-block-mode)
+;; (hl-block-mode)        ; activate in the current buffer
+;; (global-hl-block-mode) ; activate globally for all buffers
 ;;
 ;; Currently only curly braces are supported (C-family languages).
 
@@ -51,6 +52,11 @@ Set to nil to use all brackets."
   "Color to add/subtract from the background each scope step."
   :group 'hl-block-mode
   :type  'float)
+
+(defcustom hl-block-mode-lighter ""
+  "Lighter for hl-block-mode."
+  :group 'hl-block-mode
+  :type 'string)
 
 (defun hl-block--syntax-prev-bracket (pt)
   "A version of `syntax-ppss' to match curly braces.
@@ -132,11 +138,6 @@ Inverse of `color-values'."
              (setq end-prev end)))
          (cdr block-list))))))
 
-(defun hl-block--overlay-refresh-from-timer ()
-  "Ensure this mode has not been disabled before highlighting.
-This can happen when switching buffers."
-  (when hl-block-mode (hl-block--overlay-refresh)))
-
 ;; Timer
 (defvar hl-block--delay-timer nil)
 
@@ -163,13 +164,18 @@ This can happen when switching buffers."
 (define-minor-mode hl-block-mode
   "Highlight block under the cursor."
   :global nil
-  :lighter ""
+  :lighter hl-block-mode-lighter
   (cond (hl-block-mode
          (jit-lock-unregister 'hl-block-mode-enable)
          (hl-block-mode-enable))
         (t
          (jit-lock-unregister 'hl-block-mode-enable)
          (hl-block-mode-disable))))
+
+(defun hl-block--overlay-refresh-from-timer ()
+  "Ensure this mode has not been disabled before highlighting.
+This can happen when switching buffers."
+  (when hl-block-mode (hl-block--overlay-refresh)))
 
 ;;;###autoload
 (define-globalized-minor-mode global-hl-block-mode hl-block-mode
